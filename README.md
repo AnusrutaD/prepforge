@@ -7,9 +7,9 @@
 ## Table of Contents
 
 1. [System Overview](#1-system-overview)
-2. [C4 — System Context](#2-c4--system-context)
-3. [C4 — Container Architecture](#3-c4--container-architecture)
-4. [C4 — Backend Components](#4-c4--backend-components)
+2. [System Context](#2-system-context)
+3. [Container Architecture](#3-container-architecture)
+4. [Backend Component Architecture](#4-backend-component-architecture)
 5. [Adaptive Engine Design](#5-adaptive-engine-design)
 6. [Sequence Diagrams](#6-sequence-diagrams)
 7. [Database Schema](#7-database-schema)
@@ -45,122 +45,122 @@ PrepForge solves a specific problem: developers grind hundreds of LeetCode probl
 
 ---
 
-## 2. C4 — System Context
+## 2. System Context
 
 > Who uses PrepForge and what external systems does it talk to?
 
 ```mermaid
-C4Context
-    title PrepForge — System Context
+flowchart TD
+    DEV(["👤 Developer\nPreparing for product company\nDSA interviews"])
 
-    Person(user, "Developer", "Preparing for product company DSA interviews")
+    subgraph PF ["PrepForge Platform"]
+        APP["PrepForge\nAdaptive DSA preparation platform"]
+    end
 
-    System(prepforge, "PrepForge", "Adaptive DSA interview preparation platform")
+    subgraph EXT ["External Systems"]
+        CK["Clerk\nAuth & user identity\nGoogle OAuth + Email"]
+        CL["Anthropic Claude API\nAI coaching — hints & feedback\nproduction only"]
+        OL["Ollama\nLocal LLM inference\nhints & feedback — dev/beta"]
+        J0["Judge0\nSandboxed code execution\nmulti-language"]
+        RW["Railway\nCloud hosting — backend,\nfrontend, DB, Redis"]
+    end
 
-    System_Ext(clerk, "Clerk", "Authentication & user identity (Google OAuth + Email)")
-    System_Ext(claude, "Anthropic Claude API", "AI coaching — hints & feedback (production)")
-    System_Ext(ollama, "Ollama", "Local LLM inference — hints & feedback (dev/beta)")
-    System_Ext(judge0, "Judge0", "Sandboxed code execution engine (multi-language)")
-    System_Ext(railway, "Railway", "Cloud hosting — backend, frontend, DB, Redis")
-
-    Rel(user, prepforge, "Solves problems, views progress, gets hints", "HTTPS")
-    Rel(prepforge, clerk, "Verifies JWT, syncs user identity", "HTTPS / JWKS")
-    Rel(prepforge, claude, "Generates hints & feedback (prod)", "HTTPS / REST")
-    Rel(prepforge, ollama, "Generates hints & feedback (dev/beta)", "HTTP / REST")
-    Rel(prepforge, judge0, "Executes user code against test cases", "HTTPS / REST")
-    Rel(prepforge, railway, "Hosted on", "Infrastructure")
+    DEV -- "Solves problems,\nviews progress, gets hints\n(HTTPS)" --> APP
+    APP -- "Verify JWT, sync user identity\n(HTTPS / JWKS)" --> CK
+    APP -- "Generate hints & feedback — prod\n(HTTPS / REST)" --> CL
+    APP -- "Generate hints & feedback — dev/beta\n(HTTP / REST)" --> OL
+    APP -- "Execute user code against tests\n(HTTPS / REST)" --> J0
+    APP -- "Hosted on" --> RW
 ```
 
 ---
 
-## 3. C4 — Container Architecture
+## 3. Container Architecture
 
 > How is PrepForge decomposed into deployable units?
 
 ```mermaid
-C4Container
-    title PrepForge — Container Architecture
+flowchart TD
+    DEV(["👤 Developer\n(Browser)"])
 
-    Person(user, "Developer", "Browser on desktop")
+    subgraph PF ["PrepForge — Railway"]
+        FE["Frontend\nNext.js 14 / TypeScript\n─────────────────\nRenders UI, auth redirect,\nclient state via TanStack Query + Zustand"]
+        BE["Backend API\nPython 3.12 / FastAPI\n─────────────────\nBusiness logic, adaptive engine,\nAI orchestration, JWT validation"]
+        DB[("PostgreSQL 15\n─────────────\nUsers, problems, sessions,\nskill profiles, recommendations")]
+        RD[("Redis 7\n─────────────\nHint cache 7d TTL\nRec cache until midnight\nFeedback cache 24h")]
+    end
 
-    System_Boundary(prepforge, "PrepForge") {
-        Container(frontend, "Frontend", "Next.js 14 / TypeScript", "Renders UI, handles auth redirect, manages client state via TanStack Query + Zustand")
-        Container(backend, "Backend API", "Python 3.12 / FastAPI", "Business logic, adaptive engine, AI orchestration, JWT validation")
-        Container(db, "PostgreSQL 15", "Database", "Users, problems, sessions, skill profiles, recommendations")
-        Container(cache, "Redis 7", "Cache", "Hint cache (7d), recommendation cache (midnight TTL), feedback cache (24h)")
-    }
+    subgraph EXT ["External Services"]
+        CK["Clerk\nAuth — issues JWTs"]
+        AI["AI Provider\nOllama dev/beta\nor Claude Haiku prod"]
+        J0["Judge0\nCode execution"]
+    end
 
-    System_Ext(clerk, "Clerk", "Auth provider — issues JWTs")
-    System_Ext(ai, "AI Provider", "Ollama (dev) or Claude Haiku (prod)")
-    System_Ext(judge0, "Judge0", "Code execution")
-
-    Rel(user, frontend, "Uses", "HTTPS :443")
-    Rel(frontend, backend, "API calls with Clerk JWT", "HTTPS /api/v1/")
-    Rel(frontend, clerk, "Auth redirects + token refresh", "HTTPS")
-    Rel(backend, db, "Reads/writes", "asyncpg :5432")
-    Rel(backend, cache, "Cache get/set", "redis-py :6379")
-    Rel(backend, ai, "Prompt → completion", "HTTP")
-    Rel(backend, judge0, "Submit code → test results", "HTTPS")
-    Rel(backend, clerk, "Verify JWT via JWKS", "HTTPS")
+    DEV -- "HTTPS :443" --> FE
+    FE -- "HTTPS /api/v1/ + Clerk JWT" --> BE
+    FE -- "Auth redirects + token refresh" --> CK
+    BE -- "asyncpg :5432" --> DB
+    BE -- "redis-py :6379" --> RD
+    BE -- "Prompt → completion" --> AI
+    BE -- "Submit code → test results" --> J0
+    BE -- "Verify JWT via JWKS" --> CK
 ```
 
 ---
 
-## 4. C4 — Backend Components
+## 4. Backend Component Architecture
 
 > How is the FastAPI backend internally structured?
 
 ```mermaid
-C4Component
-    title PrepForge Backend — Component Architecture
+flowchart TD
+    subgraph API ["API Layer — app/api/v1/"]
+        RT["API Router\nFastAPI APIRouter\nauth · users · diagnostic · dashboard\nproblems · sessions · execute · hints · feedback · progress"]
+        DP["Dependencies — deps.py\nFastAPI Depends()\nget_current_user · get_db · get_redis\ninjected into every protected route"]
+        AM["Auth Middleware\npython-jose + Clerk JWKS\nValidates JWT → gets-or-creates user in DB"]
+        EH["Error Handler\nFastAPI exception_handler\nPrepForgeException → standardised ApiResponse"]
+    end
 
-    Container_Boundary(api, "API Layer (app/api/v1/)") {
-        Component(router, "API Router", "FastAPI APIRouter", "Routes: auth, users, diagnostic, dashboard, problems, sessions, execute, hints, feedback, progress")
-        Component(deps, "Dependencies (deps.py)", "FastAPI Depends", "get_current_user, get_db, get_redis — injected into every protected route")
-        Component(auth_mw, "Auth Middleware", "python-jose + Clerk JWKS", "Validates JWT, gets-or-creates user in DB on every request")
-        Component(err_mw, "Error Handler", "FastAPI exception_handler", "Maps PrepForgeException hierarchy → standardised ApiResponse error codes")
-    }
+    subgraph SVC ["Core Services — app/services/"]
+        US["UserService\nUser sync, profile, preferences"]
+        SS["SessionService\nSession lifecycle: create · auto-save · submit"]
+        SK["SkillService\nSkill profile CRUD, score history"]
+        DS["DiagnosticService\nDiagnostic eval, initial score seeding"]
+        RS["RecommendationService\nDaily recommendation + swap logic"]
+    end
 
-    Container_Boundary(core, "Core Domain (app/services/)") {
-        Component(user_svc, "UserService", "Python class", "User sync, profile management, preferences")
-        Component(session_svc, "SessionService", "Python class", "Session lifecycle: create, auto-save, submit")
-        Component(skill_svc, "SkillService", "Python class", "Skill profile CRUD, score history")
-        Component(diag_svc, "DiagnosticService", "Python class", "Diagnostic evaluation, initial skill score seeding")
-        Component(rec_svc, "RecommendationService", "Python class", "Daily recommendation, swap logic")
-    }
+    subgraph AE ["Adaptive Engine — app/adaptive/"]
+        EN["AdaptiveEngine\nOrchestrates: weakest topic → difficulty → problem"]
+        SC["ScoreCalculator\nEMA delta: difficulty × hint_multiplier · capped ±15pts"]
+        SL["ProblemSelector\nQueries DB for unseen problems\nmatching topic + difficulty"]
+    end
 
-    Container_Boundary(adaptive, "Adaptive Engine (app/adaptive/)") {
-        Component(engine, "AdaptiveEngine", "Python class", "Orchestrates: find weakest topic → resolve difficulty → select problem")
-        Component(scorer, "ScoreCalculator", "Python class", "EMA-smoothed score delta: difficulty × hint multiplier, capped ±15pts")
-        Component(selector, "ProblemSelector", "Python class", "Queries DB for unseen problems matching topic + difficulty")
-    }
+    subgraph AIL ["AI Layer — app/ai/"]
+        AS["AIService\n_call_ai() → Claude or Ollama\nbased on AI_PROVIDER env var"]
+        PB["PromptBuilder\nLoads versioned .txt templates\nfrom /prompts/ — never hardcoded"]
+        AC["AIResponseCache\nRedis wrapper\nhint:{problemId}:{level} · TTL 7d"]
+    end
 
-    Container_Boundary(ai_layer, "AI Layer (app/ai/)") {
-        Component(ai_svc, "AIService", "Python class", "Provider router: _call_ai() → Claude or Ollama based on AI_PROVIDER env var")
-        Component(prompt_builder, "PromptBuilder", "Python class", "Loads versioned .txt templates from /prompts/ — never hardcoded")
-        Component(ai_cache, "AIResponseCache", "Redis wrapper", "Hint cache key: hint:{problemId}:{level}, TTL 7 days")
-    }
+    subgraph MOD ["Module System — app/module/"]
+        MR["ModuleRegistry\nSingleton — holds active modules"]
+        MI["PrepModuleInterface\nPython ABC\nget_next_challenge() · evaluate_performance()"]
+        DM["DSAModule\nImplements interface\nDSA problem selection + scoring"]
+    end
 
-    Container_Boundary(module, "Module Plugin System (app/module/)") {
-        Component(registry, "ModuleRegistry", "Singleton", "Holds all active module implementations")
-        Component(interface, "PrepModuleInterface", "Python ABC", "Contract: get_next_challenge(), evaluate_performance()")
-        Component(dsa_mod, "DSAModule", "Implements interface", "DSA-specific problem selection + performance scoring")
-    }
-
-    Rel(router, deps, "Injects", "Depends()")
-    Rel(deps, auth_mw, "Calls", "get_current_user()")
-    Rel(router, user_svc, "Delegates to")
-    Rel(router, session_svc, "Delegates to")
-    Rel(session_svc, engine, "Calls after submit")
-    Rel(rec_svc, engine, "Calls for daily recommendation")
-    Rel(engine, scorer, "Computes delta")
-    Rel(engine, selector, "Picks problem")
-    Rel(engine, registry, "Gets module")
-    Rel(registry, dsa_mod, "Returns")
-    Rel(dsa_mod, interface, "Implements")
-    Rel(router, ai_svc, "Calls for hints + feedback")
-    Rel(ai_svc, prompt_builder, "Builds prompts")
-    Rel(ai_svc, ai_cache, "Check cache before AI call")
+    RT -- "Depends()" --> DP
+    DP -- "get_current_user()" --> AM
+    RT -- "delegates" --> US
+    RT -- "delegates" --> SS
+    SS -- "after submit" --> EN
+    RS -- "daily rec" --> EN
+    EN --> SC
+    EN --> SL
+    EN --> MR
+    MR --> DM
+    DM -. "implements" .-> MI
+    RT -- "hints + feedback" --> AS
+    AS --> PB
+    AS -- "cache-aside" --> AC
 ```
 
 ---
