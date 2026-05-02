@@ -1,0 +1,63 @@
+# Gitleaks configuration for PrepForge
+# Docs: https://github.com/gitleaks/gitleaks
+
+title = "PrepForge Gitleaks Config"
+
+[extend]
+# Extend the default ruleset — catches 100+ known secret patterns
+# (AWS keys, GitHub tokens, Stripe keys, private keys, etc.)
+useDefault = true
+
+# ── Custom rules specific to PrepForge ───────────────────────────────────────
+
+[[rules]]
+id          = "anthropic-api-key"
+description = "Anthropic/Claude API key"
+regex       = '''sk-ant-[a-zA-Z0-9\-_]{32,}'''
+tags        = ["anthropic", "ai", "api-key"]
+
+[[rules]]
+id          = "clerk-secret-key"
+description = "Clerk secret key"
+regex       = '''sk_(test|live)_[a-zA-Z0-9]{32,}'''
+tags        = ["clerk", "auth", "api-key"]
+
+[[rules]]
+id          = "clerk-publishable-key"
+description = "Clerk publishable key (less sensitive but should stay in .env)"
+regex       = '''pk_(test|live)_[a-zA-Z0-9]{32,}'''
+tags        = ["clerk", "auth"]
+
+[[rules]]
+id          = "judge0-api-key"
+description = "RapidAPI / Judge0 key"
+regex       = '''[a-zA-Z0-9]{50}'''
+tags        = ["judge0", "rapidapi"]
+
+[[rules]]
+id          = "database-url-with-password"
+description = "Database connection string with embedded password"
+regex       = '''(postgres|postgresql|mysql|mongodb)(\+\w+)?:\/\/[^:]+:[^@]{3,}@'''
+tags        = ["database", "credentials"]
+
+# ── Allowlist — files that are safe to contain placeholder-looking strings ───
+
+[allowlist]
+description = "Safe files — placeholders and examples"
+files       = [
+    ".env.example",
+    ".env.local.example",
+    "README.md",
+    "CHANGELOG.md",
+    ".gitleaks.toml",
+]
+# Placeholder values used in example files — not real secrets
+regexes     = [
+    "your-key-here",
+    "placeholder",
+    "sk-ant-your-key",
+    "pk_test_placeholder",
+    "sk_test_your",
+    "your-rapidapi-key",
+    "your-app\\.clerk",
+]

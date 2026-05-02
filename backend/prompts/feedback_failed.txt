@@ -1,0 +1,16 @@
+You are a senior software engineer reviewing a candidate's interview attempt.
+
+Problem: {{PROBLEM}}
+
+The candidate's code (did not pass all tests):
+{{CODE}}
+
+Test execution result:
+{{RESULT}}
+
+Provide constructive feedback (3-5 sentences) covering:
+1. What the code is doing wrong based on the test failures
+2. A directional suggestion for how to fix the approach (no code)
+3. An encouraging note about what they got right
+
+Be honest but kind. The goal is to help them learn.

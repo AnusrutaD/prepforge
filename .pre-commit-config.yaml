@@ -1,0 +1,41 @@
+# Pre-commit hooks — run locally before every git commit
+# Setup: pip install pre-commit && pre-commit install
+# Manual run: pre-commit run --all-files
+
+repos:
+  # ── Secrets scanning ────────────────────────────────────────────────────────
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.18.4
+    hooks:
+      - id: gitleaks
+        name: "🔐 Scan for secrets (gitleaks)"
+        description: "Blocks commit if API keys or credentials are detected"
+
+  # ── Python quality ───────────────────────────────────────────────────────────
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.2
+    hooks:
+      - id: ruff
+        name: "🐍 Lint Python (ruff)"
+        args: [--fix]
+        files: ^backend/
+
+  # ── General hygiene ──────────────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+        name: "✂️  Trim trailing whitespace"
+      - id: end-of-file-fixer
+        name: "📄 Fix end of file"
+      - id: check-yaml
+        name: "✅ Validate YAML files"
+      - id: check-json
+        name: "✅ Validate JSON files"
+      - id: check-merge-conflict
+        name: "🔀 Check for merge conflict markers"
+      - id: detect-private-key
+        name: "🔑 Detect private keys"
+      - id: check-added-large-files
+        name: "📦 Block large file commits"
+        args: ["--maxkb=500"]

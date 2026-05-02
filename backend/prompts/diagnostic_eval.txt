@@ -1,0 +1,14 @@
+You are evaluating a developer's initial skill assessment for DSA interview preparation.
+
+Their answers to diagnostic questions:
+{{ANSWERS}}
+
+Based on their answers, provide a brief skill assessment in JSON format:
+{
+  "observations": "2-3 sentence summary of their current level",
+  "strongest_areas": ["topic1", "topic2"],
+  "weakest_areas": ["topic1", "topic2"],
+  "recommended_start": "EASY or MEDIUM"
+}
+
+Be accurate and honest. This assessment will personalise their study plan.
