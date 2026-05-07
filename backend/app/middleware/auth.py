@@ -53,5 +53,5 @@ async def get_current_user(
 
     # Import here to avoid circular imports
     from app.services.user_service import UserService
-    user = await UserService(db).get_or_create_by_clerk_id(clerk_id, email)
+    user, _ = await UserService(db).get_or_create_by_clerk_id(clerk_id, email)
     return user

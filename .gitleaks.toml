@@ -50,11 +50,13 @@ files       = [
     "README.md",
     "CHANGELOG.md",
     ".gitleaks.toml",
+
 ]
 # Placeholder values used in example files — not real secrets
 regexes     = [
     "your-key-here",
     "placeholder",
+    "CHANGE_ME",
     "sk-ant-your-key",
     "pk_test_placeholder",
     "sk_test_your",

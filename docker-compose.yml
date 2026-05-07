@@ -1,10 +1,14 @@
-version: "3.9"
-
-# Local dev infrastructure only — PostgreSQL + Redis
-# Run backend and frontend natively for hot reload
-# Usage: docker-compose up -d
+# Full local dev stack — DB, Redis, backend, and frontend in one command
+# Hot reload is enabled on both backend (uvicorn --reload) and frontend (next dev)
+#
+# First run:  docker-compose up --build
+# After that: docker-compose up
+# Stop:       docker-compose down
+# Nuke data:  docker-compose down -v
 
 services:
+  # ── Infrastructure ────────────────────────────────────────────────────────
+
   postgres:
     image: postgres:15-alpine
     container_name: prepforge_db
@@ -13,7 +17,7 @@ services:
       POSTGRES_PASSWORD: prepforge
       POSTGRES_DB: prepforge
     ports:
-      - "5432:5432"
+      - "5433:5432"   # 5433 on host to avoid conflicts with other postgres instances
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -34,6 +38,50 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+
+  # ── Application ───────────────────────────────────────────────────────────
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: prepforge_backend
+    # Run migrations then start with hot reload
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+    volumes:
+      - ./backend:/app   # mount source for hot reload
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env   # loads CLERK_JWKS_URL, AI_PROVIDER, etc.
+    environment:
+      # Override localhost URLs to use Docker service names
+      DB_URL: postgresql+asyncpg://prepforge:prepforge@postgres:5432/prepforge
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: prepforge_frontend
+    volumes:
+      - ./frontend:/app             # mount source for hot reload
+      - /app/node_modules           # anonymous vol — keep container's node_modules
+      - /app/.next                  # anonymous vol — keep Next.js build cache
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./frontend/.env.local       # loads CLERK keys
+    environment:
+      # Next.js rewrites run server-side, so backend service name works here
+      NEXT_PUBLIC_API_URL: http://backend:8000
+    depends_on:
+      - backend
 
 volumes:
   postgres_data:

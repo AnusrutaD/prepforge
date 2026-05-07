@@ -1,0 +1,3 @@
+# Known false positives — local dev credentials, not real secrets
+# docker-compose uses prepforge:prepforge which is a public dev-only DB password
+docker-compose.yml:database-url-with-password:59

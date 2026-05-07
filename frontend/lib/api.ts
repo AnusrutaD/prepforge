@@ -6,7 +6,9 @@ import axios from "axios";
  * Never call axios directly — always use this instance so headers are consistent.
  */
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000",
+  // Use relative URL so requests go through Next.js proxy (next.config.ts rewrites)
+  // This eliminates CORS in both dev and prod — browser always talks to same origin
+  baseURL: "",
   headers: {
     "Content-Type": "application/json",
   },
